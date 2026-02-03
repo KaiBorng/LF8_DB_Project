@@ -41,18 +41,13 @@ CREATE INDEX IF NOT EXISTS idx_auto_besitzer   ON AUTO(Besitzer_ID);
 
 
 def create_database(db_path: Path):
-    # 1) Verbindung zur persistenten Datei
     conn = sqlite3.connect(db_path)
     try:
-        # 2) Fremdschlüssel aktivieren (pro Verbindung nötig in SQLite)
-        conn.execute("PRAGMA foreign_keys = ON;")
 
-        # 3) Tabellen & Indizes anlegen (idempotent)
+        conn.execute("PRAGMA foreign_keys = ON;")
         conn.executescript(DDL_SCRIPT)
 
         conn.commit()
-
-        # 4) Mini-Check: Tabellen auflisten (kein Daten-Insert!)
         cur = conn.cursor()
         cur.execute("""
                     SELECT name
@@ -69,11 +64,6 @@ def create_database(db_path: Path):
 def main():
     db_path = Path(DB_FILENAME)
     create_database(db_path)
-
-def get_db():
-    conn = sqlite3.connect("database.db")
-    conn.row_factory = sqlite3.Row
-    return conn
 
 if __name__ == "__main__":
     main()
