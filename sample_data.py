@@ -26,14 +26,14 @@ def sample_data():
 
     besitzer_liste = [
         ("Max Mustermann",),
-        ("Joe Mama",),
-        ("Ben Dover",),
-        ("Sarah Müller",),
-        ("Jonas Schmidt",),
-        ("Laura Schneider",),
-        ("Felix Bauer",),
-        ("Nina Fischer",),
-        ("Tobias Richter",),
+        ("Kurt Sichtig",),
+        ("Ben Ziner",),
+        ("Anna Nass",),
+        ("Al Dente",),
+        ("Reiner Zufall",),
+        ("Ernst Haft",),
+        ("Theo Retisch",),
+        ("Cliff Hanger",),
         ("Emma Hoffmann",)
     ]
 
