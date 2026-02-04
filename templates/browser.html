@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8" />
+    <title>Datenbrowser</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        :root {
+            --border: #d0d0d0;
+            --bg: #f7f7f9;
+            --accent: #2a6fdb;
+            --text: #222;
+        }
+        body { font-family: Arial, sans-serif; margin: 24px; color: var(--text); }
+        h1 { margin-top: 0; }
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .control-block {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        label, select, input { font-size: 14px; }
+        .checkboxes {
+            display: flex; flex-wrap: wrap; gap: 12px;
+            max-height: 140px; overflow: auto; padding-right: 6px;
+        }
+        .checkboxes label {
+            display: inline-flex; align-items: center; gap: 6px;
+            border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
+            background: #fff;
+        }
+        .search-row { display: flex; gap: 8px; align-items: center; }
+        .search-row input {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        table { border-collapse: collapse; width: 100%; }
+        thead th {
+            position: sticky; top: 0;
+            background: #eef2ff; color: #111;
+            border-bottom: 2px solid var(--border);
+            cursor: pointer; user-select: none;
+        }
+        th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+        tr:hover td { background: #fafcff; }
+        .sort-indicator { margin-left: 6px; color: var(--accent); }
+        .muted { color: #777; }
+        .no-data { padding: 18px; text-align: center; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>Datenbank</h1>
+    <div class="controls">
+        <div class="control-block">
+            <label for="table-select"><strong>Tabelle wählen</strong></label><br />
+            <select id="table-select">
+                {% for t in tables %}
+                    <option value="{{ t }}">{{ t }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="control-block">
+            <div class="search-row">
+                <label for="search"><strong>Suche:</strong></label>
+                <input type="text" id="search" placeholder="Suche in den sichtbaren Spalten…" />
+            </div>
+            <div class="muted" style="margin-top: 6px;">Tippe, um live zu filtern. Umlaute werden berücksichtigt.</div>
+        </div>
+
+        <div class="control-block" style="grid-column: 1 / -1;">
+            <div style="margin-bottom: 8px;"><strong>Spalten auswählen</strong></div>
+            <div id="checkboxes" class="checkboxes"></div>
+        </div>
+    </div>
+
+    <div style="overflow:auto; border: 1px solid var(--border); border-radius: 8px;">
+        <table id="data-table">
+            <thead><tr id="thead-row"></tr></thead>
+            <tbody id="tbody"></tbody>
+        </table>
+        <div id="no-data" class="no-data" style="display:none;">Keine Daten gefunden.</div>
+    </div>
+
+<script>
+(function() {
+    // ----- State -----
+    let currentTable = null;
+    let rows = [];                // Originaldaten (Array von Objekten)
+    let visibleColumns = [];      // Welche Spalten sind sichtbar?
+    let sortConfig = { key: null, direction: 'asc' }; // asc | desc
+    let searchTerm = '';
+
+    const tableSelect = document.getElementById('table-select');
+    const searchInput = document.getElementById('search');
+    const checkboxesDiv = document.getElementById('checkboxes');
+    const theadRow = document.getElementById('thead-row');
+    const tbody = document.getElementById('tbody');
+    const noDataDiv = document.getElementById('no-data');
+
+    // ----- Utils -----
+    const normalize = (v) => {
+        if (v === null || v === undefined) return '';
+        return String(v)
+            .normalize('NFD')                  // z.B. "ä" -> "ä"
+            .replace(/[\u0300-\u036f]/g, '')   // Kombinationszeichen entfernen
+            .toLowerCase();
+    };
+
+    const isNumber = (v) => {
+        if (v === null || v === undefined) return false;
+        const n = Number(v);
+        return !isNaN(n) && isFinite(n);
+    };
+
+    function compare(a, b, key, direction) {
+        const va = a[key];
+        const vb = b[key];
+
+        // Nulls immer ans Ende
+        if (va == null && vb == null) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+
+        let res = 0;
+        if (isNumber(va) && isNumber(vb)) {
+            res = Number(va) - Number(vb);
+        } else {
+            // Deutschsprachige Sortierung
+            res = String(va).localeCompare(String(vb), 'de', { sensitivity: 'base' });
+        }
+        return direction === 'asc' ? res : -res;
+    }
+
+    function debounce(fn, wait=200) {
+        let t;
+        return (...args) => {
+            clearTimeout(t);
+            t = setTimeout(() => fn(...args), wait);
+        };
+    }
+
+    // ----- Rendering -----
+    function renderCheckboxes(columns) {
+        checkboxesDiv.innerHTML = '';
+        columns.forEach(col => {
+            const id = `cb-${col}`;
+            const label = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.id = id;
+            cb.checked = visibleColumns.includes(col);
+            cb.addEventListener('change', () => {
+                if (cb.checked) {
+                    if (!visibleColumns.includes(col)) visibleColumns.push(col);
+                } else {
+                    visibleColumns = visibleColumns.filter(c => c !== col);
+                    // Falls aktuelle Sortierspalte ausgeblendet wird, Sortierung zurücksetzen
+                    if (sortConfig.key === col) sortConfig = { key: null, direction: 'asc' };
+                }
+                renderTable();
+            });
+            label.appendChild(cb);
+            const text = document.createTextNode(col);
+            label.appendChild(text);
+            checkboxesDiv.appendChild(label);
+        });
+    }
+
+    function renderTable() {
+        // Kopfzeile
+        theadRow.innerHTML = '';
+        visibleColumns.forEach(col => {
+            const th = document.createElement('th');
+            th.textContent = col;
+            th.title = 'Klicken zum Sortieren';
+            th.addEventListener('click', () => {
+                if (sortConfig.key === col) {
+                    sortConfig.direction = (sortConfig.direction === 'asc') ? 'desc' : 'asc';
+                } else {
+                    sortConfig = { key: col, direction: 'asc' };
+                }
+                renderTable();
+            });
+            // Sortierpfeil
+            if (sortConfig.key === col) {
+                const span = document.createElement('span');
+                span.className = 'sort-indicator';
+                span.textContent = sortConfig.direction === 'asc' ? '▲' : '▼';
+                th.appendChild(span);
+            }
+            theadRow.appendChild(th);
+        });
+
+        // Filter & Sort
+        const term = normalize(searchTerm);
+        let filtered = rows;
+
+        if (term) {
+            filtered = rows.filter(r =>
+                visibleColumns.some(col => normalize(r[col]).includes(term))
+            );
+        }
+
+        if (sortConfig.key) {
+            filtered = [...filtered].sort((a, b) => compare(a, b, sortConfig.key, sortConfig.direction));
+        }
+
+        // Body
+        tbody.innerHTML = '';
+        if (filtered.length === 0) {
+            noDataDiv.style.display = 'block';
+            return;
+        } else {
+            noDataDiv.style.display = 'none';
+        }
+
+        filtered.forEach(r => {
+            const tr = document.createElement('tr');
+            visibleColumns.forEach(col => {
+                const td = document.createElement('td');
+                const val = r[col];
+                td.textContent = (val === null || val === undefined) ? '' : String(val);
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+
+    // ----- Daten holen -----
+    async function loadTable(name) {
+        currentTable = name;
+        // Daten laden
+        const res = await fetch(`/table/${encodeURIComponent(name)}`);
+        if (!res.ok) {
+            rows = [];
+            visibleColumns = [];
+            renderCheckboxes([]);
+            renderTable();
+            return;
+        }
+        rows = await res.json();
+
+        // Spaltennamen aus den Keys des ersten Rows
+        const columns = rows.length ? Object.keys(rows[0]) : [];
+        // Standard: alle Spalten anzeigen
+        visibleColumns = [...columns];
+
+        renderCheckboxes(columns);
+        renderTable();
+    }
+
+    // ----- Events -----
+    tableSelect.addEventListener('change', (e) => loadTable(e.target.value));
+
+    searchInput.addEventListener('input', debounce((e) => {
+        searchTerm = e.target.value;
+        renderTable();
+    }, 200));
+
+    // ----- Init -----
+    // Bei Seitenaufruf: erste Option laden
+    window.addEventListener('DOMContentLoaded', () => {
+        const defaultTable = tableSelect.value;
+        loadTable(defaultTable);
+    });
+})();
+</script>
+</body>
+</html>
