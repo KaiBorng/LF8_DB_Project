@@ -11,5 +11,4 @@ for row in cur.execute("""
                                 JOIN BESITZER b ON b.Besitzer_ID = a.Besitzer_ID
                        """):
     print(row)
-
 conn.close()

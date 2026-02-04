@@ -3,9 +3,6 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import sqlite3
 
-# ---------------------------
-# DB & App Setup
-# ---------------------------
 def get_db():
     conn = sqlite3.connect("auto_produktion.db")
     conn.row_factory = sqlite3.Row
@@ -17,9 +14,6 @@ templates = Jinja2Templates(directory="templates")
 
 ALLOWED_TABLES = {"AUTO", "BESITZER", "HERSTELLER"}
 
-# ---------------------------
-# Hilfsfunktionen
-# ---------------------------
 def exists_by_id(cur, table: str, pk_name: str, id_value: int) -> bool:
     cur.execute(f'SELECT 1 FROM "{table}" WHERE "{pk_name}" = ?', (id_value,))
     return cur.fetchone() is not None
@@ -29,9 +23,6 @@ def count_refs(cur, table: str, fk_col: str, id_value: int) -> int:
     row = cur.fetchone()
     return int(row["cnt"]) if row else 0
 
-# ---------------------------
-# UI & Lesen (deine bestehenden Endpunkte)
-# ---------------------------
 @app.get("/")
 def ui(request: Request):
     # Dropdown initial mit erlaubten Tabellen füllen
@@ -84,9 +75,6 @@ def get_all_data():
     rows = cursor.fetchall()
     return [dict(row) for row in rows]
 
-# ---------------------------
-# CREATE (Hinzufügen)
-# ---------------------------
 class HerstellerCreate(BaseModel):
     Name: str
 
@@ -161,9 +149,6 @@ def add_auto(payload: AutoCreate):
     finally:
         db.close()
 
-# ---------------------------
-# DELETE (Löschen)
-# ---------------------------
 @app.delete("/delete/auto/{auto_id}")
 def delete_auto(auto_id: int):
     db = get_db()
