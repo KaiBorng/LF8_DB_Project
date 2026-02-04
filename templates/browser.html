@@ -35,6 +35,21 @@
         }
         h1 { margin: 0 0 12px 0; font-size: 22px; font-weight: 650; }
 
+        /* Top Actions (Docs & ReDoc) */
+        .top-actions{
+            display:flex; gap:12px; align-items:center;
+            margin: 8px 0 16px 0;
+        }
+        .top-actions .btn-link{
+            display:inline-flex; align-items:center; gap:8px;
+            padding:8px 12px; border-radius:8px; border:1px solid var(--border);
+            background: var(--chip); color: var(--accent-2); text-decoration:none;
+            box-shadow: var(--shadow);
+            transition: filter .15s ease, border-color .15s ease;
+        }
+        .top-actions .btn-link:hover{ filter:brightness(1.05); border-color: var(--accent); }
+        .top-actions .emoji{ font-size: 16px; }
+
         .controls {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -138,6 +153,19 @@
 </head>
 <body>
     <h1>Datenbrowser</h1>
+
+    <!-- ✨ Neue Buttons für Docs & ReDoc (vor der Datenbank) -->
+    <div class="top-actions">
+        <a class="btn-link" href="/docs" target="_blank" rel="noopener">
+            <span class="emoji">📘</span>
+            <span>API Docs</span>
+        </a>
+        <a class="btn-link" href="/redoc" target="_blank" rel="noopener">
+            <span class="emoji">📙</span>
+            <span>ReDoc</span>
+        </a>
+    </div>
+
     <div id="msg" class="msg"></div>
 
     <div class="controls">
