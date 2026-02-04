@@ -99,6 +99,15 @@
         .msg.ok { display:block; background: var(--success-bg); border:1px solid rgba(34,197,94,0.35); color: var(--success); }
         .msg.err { display:block; background: var(--danger-bg); border:1px solid rgba(239,68,68,0.35); color: var(--danger); }
 
+        /* Filter-Chip */
+        .filter-chip {
+            display:none; align-items:center; gap:8px; margin-top:8px;
+            background: var(--chip); border:1px solid var(--border); color: var(--text);
+            padding:6px 10px; border-radius: 20px; width: fit-content;
+        }
+        .filter-chip .label { font-size: 13px; }
+        .filter-chip .clear { cursor:pointer; border:none; background:transparent; color: var(--accent-2); }
+
         /* Table */
         .table-wrap { overflow:auto; border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
         table { border-collapse: collapse; width: 100%; }
@@ -114,6 +123,17 @@
         tbody tr:hover td { background: var(--hover); }
         .sort-indicator { margin-left: 6px; color: var(--accent); }
         .no-data { padding: 18px; text-align: center; color: var(--muted); }
+
+        /* Link-Stil für klickbare Namen in Zellen */
+        .cell-link {
+            color: var(--accent-2);
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            text-decoration: underline;
+            font: inherit;
+        }
     </style>
 </head>
 <body>
@@ -131,6 +151,12 @@
                     {% endfor %}
                 {% endif %}
             </select>
+
+            <!-- Aktiver Filter -->
+            <div id="active-filter" class="filter-chip">
+                <span class="label" id="filter-label"></span>
+                <button id="filter-clear" class="clear" title="Filter löschen">✕</button>
+            </div>
         </div>
 
         <div class="control-block">
@@ -155,7 +181,6 @@
             <button class="tab" data-entity="BESITZER">Besitzer hinzufügen</button>
         </div>
         <div id="forms">
-            <!-- Dynamisch je Tab -->
             <div id="form-AUTO" class="form-row"></div>
             <div id="form-HERSTELLER" class="form-row" style="display:none;"></div>
             <div id="form-BESITZER" class="form-row" style="display:none;"></div>
@@ -176,29 +201,40 @@
 <script>
 (function() {
     // ----- State -----
-    let currentTable = null;      // Welche Tabelle ist in der Tabelle sichtbar?
-    let addEntity = 'AUTO';       // Welcher Tab wird zum Hinzufügen genutzt?
-    let rows = [];                // Originaldaten (Array von Objekten)
-    let visibleColumns = [];      // Sichtbare Spalten
+    let currentTable = null;      // sichtbare Tabelle in der Grid
+    let addEntity = 'AUTO';       // Tab für Hinzufügen
+    let rows = [];                // Daten der aktuellen Tabelle
+    let visibleColumns = [];      // sichtbare Spalten
     let sortConfig = { key: null, direction: 'asc' };
     let searchTerm = '';
+
+    // Externer Filter: nur für AUTO (Hersteller_ID oder Besitzer_ID)
+    // { key: 'Hersteller_ID'|'Besitzer_ID', value: 1, label: 'Hersteller: BMW (ID 1)' }
+    let externalFilter = null;
+
+    // Caches für Namen (zur Anzeige schöner Labels & klickbarer Spalten in AUTO)
+    const manufacturersCache = new Map(); // id -> name
+    const ownersCache = new Map();        // id -> name
 
     const PK = { 'AUTO': 'Auto_ID', 'BESITZER': 'Besitzer_ID', 'HERSTELLER': 'Hersteller_ID' };
 
     // DOM
-    const tableSelect = document.getElementById('table-select');
-    const searchInput = document.getElementById('search');
+    const tableSelect   = document.getElementById('table-select');
+    const searchInput   = document.getElementById('search');
     const checkboxesDiv = document.getElementById('checkboxes');
-    const theadRow = document.getElementById('thead-row');
-    const tbody = document.getElementById('tbody');
-    const noDataDiv = document.getElementById('no-data');
-    const msg = document.getElementById('msg');
+    const theadRow      = document.getElementById('thead-row');
+    const tbody         = document.getElementById('tbody');
+    const noDataDiv     = document.getElementById('no-data');
+    const msg           = document.getElementById('msg');
+    const filterChip    = document.getElementById('active-filter');
+    const filterLabel   = document.getElementById('filter-label');
+    const filterClear   = document.getElementById('filter-clear');
 
-    const tabButtons = Array.from(document.querySelectorAll('.tab'));
-    const formAuto = document.getElementById('form-AUTO');
-    const formHersteller = document.getElementById('form-HERSTELLER');
-    const formBesitzer = document.getElementById('form-BESITZER');
-    const addBtn = document.getElementById('add-btn');
+    const tabButtons      = Array.from(document.querySelectorAll('.tab'));
+    const formAuto        = document.getElementById('form-AUTO');
+    const formHersteller  = document.getElementById('form-HERSTELLER');
+    const formBesitzer    = document.getElementById('form-BESITZER');
+    const addBtn          = document.getElementById('add-btn');
 
     // ----- Utils -----
     const normalize = (v) => {
@@ -220,9 +256,7 @@
         else res = String(va).localeCompare(String(vb), 'de', { sensitivity: 'base' });
         return direction === 'asc' ? res : -res;
     }
-    function debounce(fn, wait=220) {
-        let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
-    }
+    function debounce(fn, wait=220) { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), wait); }; }
     function setMessage(text, ok=true) {
         msg.className = 'msg ' + (ok ? 'ok' : 'err');
         msg.textContent = text;
@@ -230,7 +264,23 @@
         setTimeout(() => { msg.style.display = 'none'; }, 3200);
     }
 
-    // ----- Forms Rendering -----
+    // ----- Filter-Chip -----
+    function applyExternalFilterLabel() {
+        if (externalFilter && currentTable === 'AUTO') {
+            filterLabel.textContent = externalFilter.label;
+            filterChip.style.display = 'inline-flex';
+        } else {
+            filterChip.style.display = 'none';
+            filterLabel.textContent = '';
+        }
+    }
+    filterClear.addEventListener('click', async () => {
+        externalFilter = null;
+        applyExternalFilterLabel();
+        await loadTable('AUTO'); // neu rendern ohne externen Filter
+    });
+
+    // ----- Add-Formulare -----
     async function renderAddForms() {
         // AUTO
         formAuto.innerHTML = '';
@@ -278,8 +328,13 @@
             fetch('/table/BESITZER').then(r => r.json())
         ]);
 
+        // Caches füllen
+        manufacturersCache.clear();
+        ownersCache.clear();
+
         selHer.innerHTML = '';
         her.forEach(item => {
+            manufacturersCache.set(item.Hersteller_ID, item.Name);
             const opt = document.createElement('option');
             opt.value = item.Hersteller_ID;
             opt.textContent = `${item.Hersteller_ID} – ${item.Name}`;
@@ -287,6 +342,7 @@
         });
         selBes.innerHTML = '';
         bes.forEach(item => {
+            ownersCache.set(item.Besitzer_ID, item.Name);
             const opt = document.createElement('option');
             opt.value = item.Besitzer_ID;
             opt.textContent = `${item.Besitzer_ID} – ${item.Name}`;
@@ -297,25 +353,20 @@
     // Tabs
     function activateTab(entity) {
         addEntity = entity;
-        tabButtons.forEach(b => {
-            b.classList.toggle('active', b.dataset.entity === entity);
-        });
+        tabButtons.forEach(b => b.classList.toggle('active', b.dataset.entity === entity));
         formAuto.style.display = (entity === 'AUTO') ? 'flex' : 'none';
         formHersteller.style.display = (entity === 'HERSTELLER') ? 'flex' : 'none';
         formBesitzer.style.display = (entity === 'BESITZER') ? 'flex' : 'none';
     }
-
     tabButtons.forEach(btn => {
         btn.addEventListener('click', async () => {
             activateTab(btn.dataset.entity);
-            if (btn.dataset.entity === 'AUTO') {
-                await refreshAutoSelects(); // sicherstellen, dass neue Hersteller/Besitzer sichtbar sind
-            }
+            if (btn.dataset.entity === 'AUTO') await refreshAutoSelects();
         });
     });
 
-    // Hinzufügen-Knopf
-    addBtn.addEventListener('click', async () => {
+    // Hinzufügen
+    document.getElementById('add-btn').addEventListener('click', async () => {
         try {
             if (addEntity === 'AUTO') {
                 const Name = (document.getElementById('auto-name').value || '').trim();
@@ -332,8 +383,8 @@
                     return setMessage(err.detail || 'Fehler beim Hinzufügen (Auto).', false);
                 }
                 setMessage('Auto erfolgreich hinzugefügt.');
-                // Tabelle nur aktualisieren, wenn gerade AUTO sichtbar ist
                 if (currentTable === 'AUTO') await loadTable('AUTO');
+                await refreshAutoSelects();
 
             } else if (addEntity === 'HERSTELLER') {
                 const Name = (document.getElementById('hersteller-name').value || '').trim();
@@ -349,7 +400,7 @@
                 }
                 setMessage('Hersteller erfolgreich hinzugefügt.');
                 if (currentTable === 'HERSTELLER') await loadTable('HERSTELLER');
-                await refreshAutoSelects(); // neue Hersteller direkt in Auto-Form
+                await refreshAutoSelects();
 
             } else if (addEntity === 'BESITZER') {
                 const Name = (document.getElementById('besitzer-name').value || '').trim();
@@ -365,7 +416,7 @@
                 }
                 setMessage('Besitzer erfolgreich hinzugefügt.');
                 if (currentTable === 'BESITZER') await loadTable('BESITZER');
-                await refreshAutoSelects(); // neue Besitzer direkt in Auto-Form
+                await refreshAutoSelects();
             }
         } catch (e) {
             console.error(e);
@@ -396,6 +447,35 @@
         });
     }
 
+    function makeCellLink(text, onClick) {
+        const btn = document.createElement('button');
+        btn.className = 'cell-link';
+        btn.textContent = text;
+        btn.addEventListener('click', onClick);
+        return btn;
+    }
+
+    async function showAutosByManufacturer(herstellerId, nameText) {
+        externalFilter = {
+            key: 'Hersteller_ID',
+            value: herstellerId,
+            label: `Hersteller: ${nameText} (ID ${herstellerId})`
+        };
+        tableSelect.value = 'AUTO';
+        await loadTable('AUTO');
+        applyExternalFilterLabel();
+    }
+    async function showAutosByOwner(besitzerId, nameText) {
+        externalFilter = {
+            key: 'Besitzer_ID',
+            value: besitzerId,
+            label: `Besitzer: ${nameText} (ID ${besitzerId})`
+        };
+        tableSelect.value = 'AUTO';
+        await loadTable('AUTO');
+        applyExternalFilterLabel();
+    }
+
     function renderTable() {
         // Kopfzeile
         theadRow.innerHTML = '';
@@ -419,6 +499,7 @@
             }
             theadRow.appendChild(th);
         });
+        // Aktionen
         const actTh = document.createElement('th');
         actTh.textContent = 'Aktionen';
         actTh.className = 'actions-col';
@@ -427,8 +508,16 @@
         // Filter & Sort
         const term = normalize(searchTerm);
         let filtered = rows;
+
+        // Externer Filter nur für AUTO anwenden
+        if (currentTable === 'AUTO' && externalFilter) {
+            filtered = filtered.filter(r => r[externalFilter.key] === externalFilter.value);
+        }
+
         if (term) {
-            filtered = rows.filter(r => visibleColumns.some(col => normalize(r[col]).includes(term)));
+            filtered = filtered.filter(r =>
+                visibleColumns.some(col => normalize(r[col]).includes(term))
+            );
         }
         if (sortConfig.key) {
             filtered = [...filtered].sort((a, b) => compare(a, b, sortConfig.key, sortConfig.direction));
@@ -436,15 +525,40 @@
 
         // Body
         tbody.innerHTML = '';
-        if (filtered.length === 0) { noDataDiv.style.display = 'block'; return; }
-        noDataDiv.style.display = 'none';
+        if (filtered.length === 0) {
+            noDataDiv.style.display = 'block';
+            return;
+        } else {
+            noDataDiv.style.display = 'none';
+        }
 
         filtered.forEach(r => {
             const tr = document.createElement('tr');
             visibleColumns.forEach(col => {
                 const td = document.createElement('td');
                 const val = r[col];
-                td.textContent = (val === null || val === undefined) ? '' : String(val);
+
+                // Klickbare Namen:
+                if (currentTable === 'HERSTELLER' && col === 'Name') {
+                    // Hersteller-Name klickbar -> Autos dieses Herstellers
+                    const id = r['Hersteller_ID'];
+                    td.appendChild(makeCellLink(String(val), () => showAutosByManufacturer(id, String(val))));
+                } else if (currentTable === 'BESITZER' && col === 'Name') {
+                    // Besitzer-Name klickbar -> Autos dieses Besitzers
+                    const id = r['Besitzer_ID'];
+                    td.appendChild(makeCellLink(String(val), () => showAutosByOwner(id, String(val))));
+                } else if (currentTable === 'AUTO' && col === 'Hersteller_ID') {
+                    const id = r['Hersteller_ID'];
+                    const name = manufacturersCache.get(id) ?? String(id);
+                    td.appendChild(makeCellLink(`${name} (${id})`, () => showAutosByManufacturer(id, name)));
+                } else if (currentTable === 'AUTO' && col === 'Besitzer_ID') {
+                    const id = r['Besitzer_ID'];
+                    const name = ownersCache.get(id) ?? String(id);
+                    td.appendChild(makeCellLink(`${name} (${id})`, () => showAutosByOwner(id, name)));
+                } else {
+                    td.textContent = (val === null || val === undefined) ? '' : String(val);
+                }
+
                 tr.appendChild(td);
             });
 
@@ -477,11 +591,21 @@
 
             tbody.appendChild(tr);
         });
+
+        // Filter-Chip aktualisieren
+        applyExternalFilterLabel();
     }
 
     // ----- Daten holen -----
     async function loadTable(name) {
         currentTable = name;
+
+        // Wenn wir von AUTO weg wechseln, externen Filter entfernen
+        if (currentTable !== 'AUTO') {
+            externalFilter = null;
+            applyExternalFilterLabel();
+        }
+
         const res = await fetch(`/table/${encodeURIComponent(name)}`);
         if (!res.ok) {
             rows = []; visibleColumns = [];
@@ -489,6 +613,8 @@
             return;
         }
         rows = await res.json();
+
+        // Standardspalten
         const columns = rows.length ? Object.keys(rows[0]) : (PK[name] ? [PK[name], 'Name'] : ['Name']);
         visibleColumns = [...columns];
         renderCheckboxes(columns);
@@ -503,6 +629,8 @@
     window.addEventListener('DOMContentLoaded', async () => {
         const defaultTable = tableSelect.value || 'AUTO';
         await renderAddForms();
+        // Caches gleich initial füllen (für klickbare Spalten in AUTO)
+        await refreshAutoSelects();
         activateTab('AUTO');
         await loadTable(defaultTable);
     });
