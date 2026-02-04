@@ -151,14 +151,11 @@
                     {% endfor %}
                 {% endif %}
             </select>
-
-            <!-- Aktiver Filter -->
             <div id="active-filter" class="filter-chip">
                 <span class="label" id="filter-label"></span>
                 <button id="filter-clear" class="clear" title="Filter löschen">✕</button>
             </div>
         </div>
-
         <div class="control-block">
             <div class="search-row">
                 <label for="search"><strong style="color:#cbd5e1;">Suche:</strong></label>
@@ -166,14 +163,11 @@
             </div>
             <div class="muted" style="margin-top: 6px;">Tippe, um live zu filtern. Umlaute werden berücksichtigt.</div>
         </div>
-
         <div class="control-block" style="grid-column: 1 / -1;">
             <div style="margin-bottom: 8px; color:#cbd5e1;"><strong>Spalten auswählen</strong></div>
             <div id="checkboxes" class="checkboxes"></div>
         </div>
     </div>
-
-    <!-- Hinzufügen-Bereich mit Tabs: Auto | Hersteller | Besitzer -->
     <div class="control-block add-wrap">
         <div class="tabs">
             <button class="tab active" data-entity="AUTO">Auto hinzufügen</button>
@@ -189,7 +183,6 @@
             <button id="add-btn" class="btn primary">Hinzufügen</button>
         </div>
     </div>
-
     <div class="table-wrap">
         <table id="data-table">
             <thead><tr id="thead-row"></tr></thead>
@@ -197,7 +190,6 @@
         </table>
         <div id="no-data" class="no-data" style="display:none;">Keine Daten gefunden.</div>
     </div>
-
 <script>
 (function() {
     // ----- State -----
