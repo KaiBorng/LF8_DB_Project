@@ -2,17 +2,39 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8" />
-    <title>Datenbrowser</title>
+    <title>Datenbrowser – Dark Mode</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-        :root {
-            --border: #d0d0d0;
-            --bg: #f7f7f9;
-            --accent: #2a6fdb;
-            --text: #222;
+        /* --------- DARK THEME --------- */
+        :root{
+            --bg: #0f172a;           /* slate-900 */
+            --panel: #111827;        /* gray-900 */
+            --panel-2:#0b1220;
+            --border:#243045;        /* dark border */
+            --text:#e5e7eb;          /* gray-200 */
+            --muted:#94a3b8;         /* slate-400 */
+            --accent:#60a5fa;        /* sky-400 */
+            --accent-2:#93c5fd;      /* lighter accent */
+            --danger:#ef4444;        /* red-500 */
+            --success:#22c55e;       /* green-500 */
+            --danger-bg:#2a1212;
+            --success-bg:#0f2a17;
+            --thead:#0b1732;         /* dark header row */
+            --hover:#0f1b33;
+            --chip:#0f213b;
+            --input:#0b1220;
+            --shadow: 0 6px 18px rgba(0,0,0,0.35);
         }
-        body { font-family: Arial, sans-serif; margin: 24px; color: var(--text); }
-        h1 { margin-top: 0; }
+        * { box-sizing: border-box; }
+        html,body { height:100%; }
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+            margin: 24px;
+            background: var(--bg);
+            color: var(--text);
+        }
+        h1 { margin: 0 0 12px 0; font-size: 22px; font-weight: 650; }
+
         .controls {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -20,69 +42,130 @@
             margin-bottom: 16px;
         }
         .control-block {
-            background: var(--bg);
+            background: linear-gradient(180deg, var(--panel), var(--panel-2));
             border: 1px solid var(--border);
-            border-radius: 8px;
+            border-radius: 10px;
             padding: 12px;
+            box-shadow: var(--shadow);
         }
-        label, select, input { font-size: 14px; }
+
+        label { font-size: 13px; color: var(--muted); }
+        select, input {
+            font-size: 14px; color: var(--text); background: var(--input);
+            border: 1px solid var(--border); border-radius: 8px;
+            padding: 8px 10px; outline: none; width: 100%;
+        }
+        select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
+
         .checkboxes {
-            display: flex; flex-wrap: wrap; gap: 12px;
+            display: flex; flex-wrap: wrap; gap: 10px;
             max-height: 140px; overflow: auto; padding-right: 6px;
         }
         .checkboxes label {
-            display: inline-flex; align-items: center; gap: 6px;
-            border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
-            background: #fff;
+            display: inline-flex; align-items: center; gap: 8px;
+            border: 1px solid var(--border); border-radius: 16px;
+            padding: 6px 10px; background: var(--chip); color: var(--text);
+            user-select: none;
         }
+        .checkboxes input[type="checkbox"] { accent-color: var(--accent); }
+
         .search-row { display: flex; gap: 8px; align-items: center; }
-        .search-row input {
-            flex: 1;
-            padding: 8px 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
+        .muted { color: var(--muted); font-size: 12px; }
+
+        /* Add forms */
+        .add-wrap { margin-bottom:16px; }
+        .tabs { display:flex; gap:8px; margin-bottom:10px; }
+        .tab {
+            background: var(--chip); color: var(--text);
+            border: 1px solid var(--border); border-radius: 20px;
+            padding: 6px 12px; cursor: pointer;
         }
+        .tab.active { border-color: var(--accent); color: var(--accent-2); }
+        .form-row { display:flex; gap:10px; flex-wrap:wrap; }
+        .form-row > * { min-width:180px; flex:1; }
+        .btn {
+            padding:8px 12px; border-radius:8px;
+            border: 1px solid var(--border);
+            background: var(--chip); color: var(--text);
+            cursor:pointer;
+        }
+        .btn.primary { border-color: var(--accent); color: var(--accent-2); }
+        .btn.danger { border-color: #7f1d1d; color: var(--danger); }
+        .btn:hover { filter: brightness(1.05); }
+        .actions-col { width:1%; white-space:nowrap; }
+
+        /* Messages */
+        .msg { margin-bottom: 12px; padding: 10px 12px; border-radius: 8px; display:none; }
+        .msg.ok { display:block; background: var(--success-bg); border:1px solid rgba(34,197,94,0.35); color: var(--success); }
+        .msg.err { display:block; background: var(--danger-bg); border:1px solid rgba(239,68,68,0.35); color: var(--danger); }
+
+        /* Table */
+        .table-wrap { overflow:auto; border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
         table { border-collapse: collapse; width: 100%; }
         thead th {
             position: sticky; top: 0;
-            background: #eef2ff; color: #111;
-            border-bottom: 2px solid var(--border);
+            background: var(--thead);
+            color: var(--text);
+            border-bottom: 1px solid var(--border);
             cursor: pointer; user-select: none;
+            font-weight: 600;
         }
-        th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
-        tr:hover td { background: #fafcff; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+        tbody tr:hover td { background: var(--hover); }
         .sort-indicator { margin-left: 6px; color: var(--accent); }
-        .muted { color: #777; }
-        .no-data { padding: 18px; text-align: center; color: #666; }
+        .no-data { padding: 18px; text-align: center; color: var(--muted); }
     </style>
 </head>
 <body>
-    <h1>Datenbank</h1>
+    <h1>Datenbrowser</h1>
+
+    <div id="msg" class="msg"></div>
+
     <div class="controls">
         <div class="control-block">
-            <label for="table-select"><strong>Tabelle wählen</strong></label><br />
+            <label for="table-select"><strong style="color:#cbd5e1;">Tabelle wählen</strong></label><br />
             <select id="table-select">
-                {% for t in tables %}
-                    <option value="{{ t }}">{{ t }}</option>
-                {% endfor %}
+                {% if tables %}
+                    {% for t in tables %}
+                        <option value="{{ t }}">{{ t }}</option>
+                    {% endfor %}
+                {% endif %}
             </select>
         </div>
 
         <div class="control-block">
             <div class="search-row">
-                <label for="search"><strong>Suche:</strong></label>
+                <label for="search"><strong style="color:#cbd5e1;">Suche:</strong></label>
                 <input type="text" id="search" placeholder="Suche in den sichtbaren Spalten…" />
             </div>
             <div class="muted" style="margin-top: 6px;">Tippe, um live zu filtern. Umlaute werden berücksichtigt.</div>
         </div>
 
         <div class="control-block" style="grid-column: 1 / -1;">
-            <div style="margin-bottom: 8px;"><strong>Spalten auswählen</strong></div>
+            <div style="margin-bottom: 8px; color:#cbd5e1;"><strong>Spalten auswählen</strong></div>
             <div id="checkboxes" class="checkboxes"></div>
         </div>
     </div>
 
-    <div style="overflow:auto; border: 1px solid var(--border); border-radius: 8px;">
+    <!-- Hinzufügen-Bereich mit Tabs: Auto | Hersteller | Besitzer -->
+    <div class="control-block add-wrap">
+        <div class="tabs">
+            <button class="tab active" data-entity="AUTO">Auto hinzufügen</button>
+            <button class="tab" data-entity="HERSTELLER">Hersteller hinzufügen</button>
+            <button class="tab" data-entity="BESITZER">Besitzer hinzufügen</button>
+        </div>
+        <div id="forms">
+            <!-- Dynamisch je Tab -->
+            <div id="form-AUTO" class="form-row"></div>
+            <div id="form-HERSTELLER" class="form-row" style="display:none;"></div>
+            <div id="form-BESITZER" class="form-row" style="display:none;"></div>
+        </div>
+        <div style="margin-top:10px;">
+            <button id="add-btn" class="btn primary">Hinzufügen</button>
+        </div>
+    </div>
+
+    <div class="table-wrap">
         <table id="data-table">
             <thead><tr id="thead-row"></tr></thead>
             <tbody id="tbody"></tbody>
@@ -93,84 +176,222 @@
 <script>
 (function() {
     // ----- State -----
-    let currentTable = null;
+    let currentTable = null;      // Welche Tabelle ist in der Tabelle sichtbar?
+    let addEntity = 'AUTO';       // Welcher Tab wird zum Hinzufügen genutzt?
     let rows = [];                // Originaldaten (Array von Objekten)
-    let visibleColumns = [];      // Welche Spalten sind sichtbar?
-    let sortConfig = { key: null, direction: 'asc' }; // asc | desc
+    let visibleColumns = [];      // Sichtbare Spalten
+    let sortConfig = { key: null, direction: 'asc' };
     let searchTerm = '';
 
+    const PK = { 'AUTO': 'Auto_ID', 'BESITZER': 'Besitzer_ID', 'HERSTELLER': 'Hersteller_ID' };
+
+    // DOM
     const tableSelect = document.getElementById('table-select');
     const searchInput = document.getElementById('search');
     const checkboxesDiv = document.getElementById('checkboxes');
     const theadRow = document.getElementById('thead-row');
     const tbody = document.getElementById('tbody');
     const noDataDiv = document.getElementById('no-data');
+    const msg = document.getElementById('msg');
+
+    const tabButtons = Array.from(document.querySelectorAll('.tab'));
+    const formAuto = document.getElementById('form-AUTO');
+    const formHersteller = document.getElementById('form-HERSTELLER');
+    const formBesitzer = document.getElementById('form-BESITZER');
+    const addBtn = document.getElementById('add-btn');
 
     // ----- Utils -----
     const normalize = (v) => {
         if (v === null || v === undefined) return '';
-        return String(v)
-            .normalize('NFD')                  // z.B. "ä" -> "ä"
-            .replace(/[\u0300-\u036f]/g, '')   // Kombinationszeichen entfernen
-            .toLowerCase();
+        return String(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     };
-
     const isNumber = (v) => {
         if (v === null || v === undefined) return false;
         const n = Number(v);
         return !isNaN(n) && isFinite(n);
     };
-
     function compare(a, b, key, direction) {
-        const va = a[key];
-        const vb = b[key];
-
-        // Nulls immer ans Ende
+        const va = a[key], vb = b[key];
         if (va == null && vb == null) return 0;
         if (va == null) return 1;
         if (vb == null) return -1;
-
         let res = 0;
-        if (isNumber(va) && isNumber(vb)) {
-            res = Number(va) - Number(vb);
-        } else {
-            // Deutschsprachige Sortierung
-            res = String(va).localeCompare(String(vb), 'de', { sensitivity: 'base' });
-        }
+        if (isNumber(va) && isNumber(vb)) res = Number(va) - Number(vb);
+        else res = String(va).localeCompare(String(vb), 'de', { sensitivity: 'base' });
         return direction === 'asc' ? res : -res;
     }
-
-    function debounce(fn, wait=200) {
-        let t;
-        return (...args) => {
-            clearTimeout(t);
-            t = setTimeout(() => fn(...args), wait);
-        };
+    function debounce(fn, wait=220) {
+        let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+    }
+    function setMessage(text, ok=true) {
+        msg.className = 'msg ' + (ok ? 'ok' : 'err');
+        msg.textContent = text;
+        msg.style.display = 'block';
+        setTimeout(() => { msg.style.display = 'none'; }, 3200);
     }
 
-    // ----- Rendering -----
+    // ----- Forms Rendering -----
+    async function renderAddForms() {
+        // AUTO
+        formAuto.innerHTML = '';
+        {
+            const inName = document.createElement('input');
+            inName.type = 'text'; inName.placeholder = 'Auto-Name (z. B. Golf)'; inName.id = 'auto-name';
+
+            const selHer = document.createElement('select');
+            selHer.id = 'auto-hersteller';
+            const selBes = document.createElement('select');
+            selBes.id = 'auto-besitzer';
+
+            formAuto.appendChild(inName);
+            formAuto.appendChild(selHer);
+            formAuto.appendChild(selBes);
+
+            // Optionen laden
+            await refreshAutoSelects();
+        }
+
+        // HERSTELLER
+        formHersteller.innerHTML = '';
+        {
+            const inName = document.createElement('input');
+            inName.type = 'text'; inName.placeholder = 'Hersteller-Name'; inName.id = 'hersteller-name';
+            formHersteller.appendChild(inName);
+        }
+
+        // BESITZER
+        formBesitzer.innerHTML = '';
+        {
+            const inName = document.createElement('input');
+            inName.type = 'text'; inName.placeholder = 'Besitzer-Name'; inName.id = 'besitzer-name';
+            formBesitzer.appendChild(inName);
+        }
+    }
+
+    async function refreshAutoSelects() {
+        const selHer = document.getElementById('auto-hersteller');
+        const selBes = document.getElementById('auto-besitzer');
+        if (!selHer || !selBes) return;
+
+        const [her, bes] = await Promise.all([
+            fetch('/table/HERSTELLER').then(r => r.json()),
+            fetch('/table/BESITZER').then(r => r.json())
+        ]);
+
+        selHer.innerHTML = '';
+        her.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.Hersteller_ID;
+            opt.textContent = `${item.Hersteller_ID} – ${item.Name}`;
+            selHer.appendChild(opt);
+        });
+        selBes.innerHTML = '';
+        bes.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.Besitzer_ID;
+            opt.textContent = `${item.Besitzer_ID} – ${item.Name}`;
+            selBes.appendChild(opt);
+        });
+    }
+
+    // Tabs
+    function activateTab(entity) {
+        addEntity = entity;
+        tabButtons.forEach(b => {
+            b.classList.toggle('active', b.dataset.entity === entity);
+        });
+        formAuto.style.display = (entity === 'AUTO') ? 'flex' : 'none';
+        formHersteller.style.display = (entity === 'HERSTELLER') ? 'flex' : 'none';
+        formBesitzer.style.display = (entity === 'BESITZER') ? 'flex' : 'none';
+    }
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', async () => {
+            activateTab(btn.dataset.entity);
+            if (btn.dataset.entity === 'AUTO') {
+                await refreshAutoSelects(); // sicherstellen, dass neue Hersteller/Besitzer sichtbar sind
+            }
+        });
+    });
+
+    // Hinzufügen-Knopf
+    addBtn.addEventListener('click', async () => {
+        try {
+            if (addEntity === 'AUTO') {
+                const Name = (document.getElementById('auto-name').value || '').trim();
+                const Hersteller_ID = parseInt(document.getElementById('auto-hersteller').value, 10);
+                const Besitzer_ID = parseInt(document.getElementById('auto-besitzer').value, 10);
+                if (!Name) return setMessage('Name darf nicht leer sein.', false);
+
+                const res = await fetch('/add/auto', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ Name, Hersteller_ID, Besitzer_ID })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    return setMessage(err.detail || 'Fehler beim Hinzufügen (Auto).', false);
+                }
+                setMessage('Auto erfolgreich hinzugefügt.');
+                // Tabelle nur aktualisieren, wenn gerade AUTO sichtbar ist
+                if (currentTable === 'AUTO') await loadTable('AUTO');
+
+            } else if (addEntity === 'HERSTELLER') {
+                const Name = (document.getElementById('hersteller-name').value || '').trim();
+                if (!Name) return setMessage('Name darf nicht leer sein.', false);
+
+                const res = await fetch('/add/hersteller', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ Name })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    return setMessage(err.detail || 'Fehler beim Hinzufügen (Hersteller).', false);
+                }
+                setMessage('Hersteller erfolgreich hinzugefügt.');
+                if (currentTable === 'HERSTELLER') await loadTable('HERSTELLER');
+                await refreshAutoSelects(); // neue Hersteller direkt in Auto-Form
+
+            } else if (addEntity === 'BESITZER') {
+                const Name = (document.getElementById('besitzer-name').value || '').trim();
+                if (!Name) return setMessage('Name darf nicht leer sein.', false);
+
+                const res = await fetch('/add/besitzer', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ Name })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    return setMessage(err.detail || 'Fehler beim Hinzufügen (Besitzer).', false);
+                }
+                setMessage('Besitzer erfolgreich hinzugefügt.');
+                if (currentTable === 'BESITZER') await loadTable('BESITZER');
+                await refreshAutoSelects(); // neue Besitzer direkt in Auto-Form
+            }
+        } catch (e) {
+            console.error(e);
+            setMessage('Unerwarteter Fehler beim Hinzufügen.', false);
+        }
+    });
+
+    // ----- Checkboxes & Tabelle -----
     function renderCheckboxes(columns) {
         checkboxesDiv.innerHTML = '';
         columns.forEach(col => {
             const id = `cb-${col}`;
             const label = document.createElement('label');
             const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.id = id;
-            cb.checked = visibleColumns.includes(col);
+            cb.type = 'checkbox'; cb.id = id; cb.checked = visibleColumns.includes(col);
             cb.addEventListener('change', () => {
                 if (cb.checked) {
                     if (!visibleColumns.includes(col)) visibleColumns.push(col);
                 } else {
                     visibleColumns = visibleColumns.filter(c => c !== col);
-                    // Falls aktuelle Sortierspalte ausgeblendet wird, Sortierung zurücksetzen
                     if (sortConfig.key === col) sortConfig = { key: null, direction: 'asc' };
                 }
                 renderTable();
             });
             label.appendChild(cb);
-            const text = document.createTextNode(col);
-            label.appendChild(text);
+            label.appendChild(document.createTextNode(col));
             checkboxesDiv.appendChild(label);
         });
     }
@@ -190,7 +411,6 @@
                 }
                 renderTable();
             });
-            // Sortierpfeil
             if (sortConfig.key === col) {
                 const span = document.createElement('span');
                 span.className = 'sort-indicator';
@@ -199,29 +419,25 @@
             }
             theadRow.appendChild(th);
         });
+        const actTh = document.createElement('th');
+        actTh.textContent = 'Aktionen';
+        actTh.className = 'actions-col';
+        theadRow.appendChild(actTh);
 
         // Filter & Sort
         const term = normalize(searchTerm);
         let filtered = rows;
-
         if (term) {
-            filtered = rows.filter(r =>
-                visibleColumns.some(col => normalize(r[col]).includes(term))
-            );
+            filtered = rows.filter(r => visibleColumns.some(col => normalize(r[col]).includes(term)));
         }
-
         if (sortConfig.key) {
             filtered = [...filtered].sort((a, b) => compare(a, b, sortConfig.key, sortConfig.direction));
         }
 
         // Body
         tbody.innerHTML = '';
-        if (filtered.length === 0) {
-            noDataDiv.style.display = 'block';
-            return;
-        } else {
-            noDataDiv.style.display = 'none';
-        }
+        if (filtered.length === 0) { noDataDiv.style.display = 'block'; return; }
+        noDataDiv.style.display = 'none';
 
         filtered.forEach(r => {
             const tr = document.createElement('tr');
@@ -231,6 +447,34 @@
                 td.textContent = (val === null || val === undefined) ? '' : String(val);
                 tr.appendChild(td);
             });
+
+            // Aktionen: Löschen
+            const actTd = document.createElement('td');
+            actTd.className = 'actions-col';
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn danger';
+            delBtn.textContent = 'Löschen';
+            delBtn.onclick = async () => {
+                const pkName = PK[currentTable];
+                const id = r[pkName];
+                if (id == null) return setMessage('Kein Primärschlüssel gefunden.', false);
+                let url = '';
+                if (currentTable === 'AUTO') url = `/delete/auto/${id}`;
+                if (currentTable === 'HERSTELLER') url = `/delete/hersteller/${id}`;
+                if (currentTable === 'BESITZER') url = `/delete/besitzer/${id}`;
+                const res = await fetch(url, { method: 'DELETE' });
+                if (res.ok) {
+                    setMessage('Eintrag erfolgreich gelöscht.');
+                    await loadTable(currentTable);
+                    await refreshAutoSelects(); // Listen aktuell halten
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    setMessage(err.detail || 'Fehler beim Löschen.', false);
+                }
+            };
+            actTd.appendChild(delBtn);
+            tr.appendChild(actTd);
+
             tbody.appendChild(tr);
         });
     }
@@ -238,39 +482,29 @@
     // ----- Daten holen -----
     async function loadTable(name) {
         currentTable = name;
-        // Daten laden
         const res = await fetch(`/table/${encodeURIComponent(name)}`);
         if (!res.ok) {
-            rows = [];
-            visibleColumns = [];
-            renderCheckboxes([]);
-            renderTable();
+            rows = []; visibleColumns = [];
+            renderCheckboxes([]); renderTable();
             return;
         }
         rows = await res.json();
-
-        // Spaltennamen aus den Keys des ersten Rows
-        const columns = rows.length ? Object.keys(rows[0]) : [];
-        // Standard: alle Spalten anzeigen
+        const columns = rows.length ? Object.keys(rows[0]) : (PK[name] ? [PK[name], 'Name'] : ['Name']);
         visibleColumns = [...columns];
-
         renderCheckboxes(columns);
         renderTable();
     }
 
-    // ----- Events -----
+    // Events
     tableSelect.addEventListener('change', (e) => loadTable(e.target.value));
+    searchInput.addEventListener('input', debounce((e) => { searchTerm = e.target.value; renderTable(); }, 220));
 
-    searchInput.addEventListener('input', debounce((e) => {
-        searchTerm = e.target.value;
-        renderTable();
-    }, 200));
-
-    // ----- Init -----
-    // Bei Seitenaufruf: erste Option laden
-    window.addEventListener('DOMContentLoaded', () => {
-        const defaultTable = tableSelect.value;
-        loadTable(defaultTable);
+    // Init
+    window.addEventListener('DOMContentLoaded', async () => {
+        const defaultTable = tableSelect.value || 'AUTO';
+        await renderAddForms();
+        activateTab('AUTO');
+        await loadTable(defaultTable);
     });
 })();
 </script>

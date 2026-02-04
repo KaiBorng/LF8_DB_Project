@@ -5,8 +5,8 @@ config:
     layout: elk
 ---
 erDiagram
-    HERSTELLER ||--|{ AUTO: verkauft
-    BESITZER ||--|{ AUTO: gehoert
+    HERSTELLER only one--zero or more AUTO: verkauft
+    BESITZER zero or one--zero or more AUTO: gehoert
 
     HERSTELLER {
         integer Hersteller_ID PK
